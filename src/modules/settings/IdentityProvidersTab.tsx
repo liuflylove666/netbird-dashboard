@@ -41,6 +41,7 @@ import { idpIcon } from "@/assets/icons/IdentityProviderIcons";
 
 export const idpTypeLabels: Record<SSOIdentityProviderType, string> = {
   oidc: "OIDC",
+  ldap: "LDAP / OpenLDAP",
   zitadel: "Zitadel",
   entra: "Microsoft Entra",
   google: "Google",

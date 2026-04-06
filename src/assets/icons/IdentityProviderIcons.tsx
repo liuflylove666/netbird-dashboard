@@ -8,7 +8,7 @@ import PocketIdIcon from "@/assets/icons/PocketIdIcon";
 import ZitadelIcon from "@/assets/icons/ZitadelIcon";
 import AuthentikIcon from "@/assets/icons/AuthentikIcon";
 import KeycloakIcon from "@/assets/icons/KeycloakIcon";
-import { KeyRound } from "lucide-react";
+import { FolderTree, KeyRound } from "lucide-react";
 
 export const idpIcon = (
   type: SSOIdentityProviderType,
@@ -23,6 +23,7 @@ export const idpIcon = (
     zitadel: <ZitadelIcon size={size} />,
     authentik: <AuthentikIcon size={size} />,
     keycloak: <KeycloakIcon size={size} />,
+    ldap: <FolderTree size={size} className="text-nb-gray-300" />,
     oidc: <KeyRound size={size} className="text-nb-gray-400" />,
   };
 

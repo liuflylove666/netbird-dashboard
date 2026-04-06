@@ -15,6 +15,9 @@ export interface User {
   permissions: Permissions;
   password?: string;
   idp_id?: string;
+  force_password_change?: boolean;
+  mfa_enabled?: boolean;
+  mfa_required?: boolean;
 }
 
 export interface UserInviteCreateRequest {
@@ -23,6 +26,9 @@ export interface UserInviteCreateRequest {
   role: string;
   auto_groups: string[];
   expires_in?: number;
+  idp_id?: string;
+  password?: string;
+  ldap_groups?: string[];
 }
 
 export interface UserInvite {
@@ -35,6 +41,13 @@ export interface UserInvite {
   created_at: string;
   expired: boolean;
   invite_token?: string;
+  idp_id?: string;
+}
+
+export interface IdentityProvider {
+  id: string;
+  name: string;
+  type: string;
 }
 
 export interface UserInviteInfo {

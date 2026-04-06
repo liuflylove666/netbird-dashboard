@@ -24,6 +24,8 @@ import {
   KeyRoundIcon,
   Mail,
   MonitorSmartphoneIcon,
+  ShieldCheck,
+  ShieldOff,
   User2,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -38,8 +40,11 @@ import { Role, User } from "@/interfaces/User";
 import PageContainer from "@/layouts/PageContainer";
 import AccessTokensTable from "@/modules/access-tokens/AccessTokensTable";
 import CreateAccessTokenModal from "@/modules/access-tokens/CreateAccessTokenModal";
+import { useAccount } from "@/modules/account/useAccount";
 import useGroupHelper from "@/modules/groups/useGroupHelper";
 import { useGroupIdsToGroups } from "@/modules/groups/useGroupIdsToGroups";
+import ChangePasswordModal from "@/modules/users/ChangePasswordModal";
+import MFASetupModal from "@/modules/users/MFASetupModal";
 import UserBlockCell from "@/modules/users/table-cells/UserBlockCell";
 import UserStatusCell from "@/modules/users/table-cells/UserStatusCell";
 import { UserPeersSection } from "@/modules/users/UserPeersSection";
@@ -338,6 +343,11 @@ function UserInformationCard({ user }: Readonly<{ user: User }>) {
     dayjs().subtract(1000, "years"),
   );
   const isPendingApproval = user?.pending_approval;
+  const account = useAccount();
+  const embeddedIdpEnabled = account?.settings?.embedded_idp_enabled;
+  const { loggedInUser } = useLoggedInUser();
+  const isAdminOrOwner = loggedInUser?.role === Role.Owner || loggedInUser?.role === Role.Admin;
+  const showChangePassword = !isServiceUser && embeddedIdpEnabled && (user.is_current || isAdminOrOwner);
 
   return (
     <Card>
@@ -408,9 +418,83 @@ function UserInformationCard({ user }: Readonly<{ user: User }>) {
                     ")"
               }
             />
+
+            {showChangePassword && (
+              <Card.ListItem
+                tooltip={false}
+                label={
+                  <>
+                    <KeyRoundIcon size={16} />
+                    Password
+                  </>
+                }
+                value={
+                  <ChangePasswordModal user={user} isAdminReset={!user.is_current && isAdminOrOwner}>
+                    <Button variant={"secondary"} size={"xs"}>
+                      <KeyRoundIcon size={14} />
+                      {!user.is_current && isAdminOrOwner ? "Reset Password" : "Change Password"}
+                    </Button>
+                  </ChangePasswordModal>
+                }
+              />
+            )}
+            {!isServiceUser && embeddedIdpEnabled && (user.is_current || isAdminOrOwner) && (
+              <Card.ListItem
+                tooltip={false}
+                label={
+                  <>
+                    <ShieldCheck size={16} />
+                    Two-Factor Auth
+                  </>
+                }
+                value={
+                  user.is_current ? (
+                    <MFASetupModal user={user}>
+                      <Button
+                        variant={user.mfa_enabled ? "danger-outline" : "secondary"}
+                        size={"xs"}
+                      >
+                        <ShieldCheck size={14} />
+                        {user.mfa_enabled ? "Disable MFA" : "Enable MFA"}
+                      </Button>
+                    </MFASetupModal>
+                  ) : user.mfa_enabled ? (
+                    <MFAAdminDisableButton userId={user.id} />
+                  ) : (
+                    <span className="text-nb-gray-400 text-xs">Not enabled</span>
+                  )
+                }
+              />
+            )}
           </>
         )}
       </Card.List>
     </Card>
+  );
+}
+
+function MFAAdminDisableButton({ userId }: Readonly<{ userId: string }>) {
+  const disableRequest = useApiCall<{ mfa_enabled: boolean }>(
+    `/users/${userId}/mfa/disable`,
+  );
+  const { mutate } = useSWRConfig();
+
+  const handleDisable = () => {
+    notify({
+      title: "Disable MFA",
+      description: "Disabling two-factor authentication for this user...",
+      promise: disableRequest.post({}).then(() => {
+        mutate("/users?service_user=false");
+        window.location.reload();
+      }),
+      loadingMessage: "Disabling MFA...",
+    });
+  };
+
+  return (
+    <Button variant={"danger-outline"} size={"xs"} onClick={handleDisable}>
+      <ShieldOff size={14} />
+      Disable MFA
+    </Button>
   );
 }

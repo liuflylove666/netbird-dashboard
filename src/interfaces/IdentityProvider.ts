@@ -33,6 +33,7 @@ export interface IdentityProviderLog {
 
 export type SSOIdentityProviderType =
   | "oidc"
+  | "ldap"
   | "zitadel"
   | "entra"
   | "google"
@@ -47,6 +48,7 @@ export const SSOIdentityProviderOptions: {
   label: string;
 }[] = [
   { value: "oidc", label: "OIDC (Generic)" },
+  { value: "ldap", label: "LDAP / OpenLDAP" },
   { value: "google", label: "Google" },
   { value: "microsoft", label: "Microsoft" },
   { value: "entra", label: "Microsoft Entra" },
@@ -66,6 +68,28 @@ export const getSSOIdentityProviderLabelByType = (
   );
 };
 
+export interface IdentityProviderLDAP {
+  host: string;
+  insecure_no_ssl?: boolean;
+  insecure_skip_verify?: boolean;
+  start_tls?: boolean;
+  root_ca?: string;
+  bind_dn: string;
+  bind_pw?: string;
+  user_search_base_dn: string;
+  user_search_filter?: string;
+  user_search_username?: string;
+  user_search_id_attr?: string;
+  user_search_email_attr?: string;
+  user_search_name_attr?: string;
+  group_search_base_dn?: string;
+  group_search_filter?: string;
+  group_search_user_attr?: string;
+  group_search_group_attr?: string;
+  group_search_name_attr?: string;
+  required_groups?: string[];
+}
+
 export interface SSOIdentityProvider {
   id: string;
   type: SSOIdentityProviderType;
@@ -73,6 +97,7 @@ export interface SSOIdentityProvider {
   issuer: string;
   client_id: string;
   redirect_url?: string;
+  ldap?: IdentityProviderLDAP;
 }
 
 export interface SSOIdentityProviderRequest {
@@ -81,4 +106,5 @@ export interface SSOIdentityProviderRequest {
   issuer: string;
   client_id: string;
   client_secret: string;
+  ldap?: IdentityProviderLDAP;
 }

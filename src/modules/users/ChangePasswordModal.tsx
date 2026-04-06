@@ -1,193 +1,210 @@
-"use client";
-
 import Button from "@components/Button";
 import { Input } from "@components/Input";
 import {
   Modal,
-  ModalClose,
   ModalContent,
   ModalFooter,
   ModalTrigger,
 } from "@components/modal/Modal";
-import ModalHeader from "@components/modal/ModalHeader";
 import { notify } from "@components/Notification";
-import Separator from "@components/Separator";
-import { Label } from "@components/Label";
-import HelpText from "@components/HelpText";
+import Paragraph from "@components/Paragraph";
 import { useApiCall } from "@utils/api";
-import { KeyRound, LockIcon } from "lucide-react";
+import { KeyRound, Lock, ShieldCheck } from "lucide-react";
 import React, { useMemo, useState } from "react";
+import { User } from "@/interfaces/User";
 
 type Props = {
+  user: User;
   children: React.ReactNode;
-  userId?: string;
 };
 
 export default function ChangePasswordModal({
+  user,
   children,
-  userId,
-}: Readonly<Props>) {
-  const [modal, setModal] = useState(false);
+  isAdminReset = false,
+}: Readonly<Props & { isAdminReset?: boolean }>) {
+  const [open, setOpen] = useState(false);
 
   return (
-    <Modal open={modal} onOpenChange={setModal} key={modal ? 1 : 0}>
-      <ModalTrigger asChild>{children}</ModalTrigger>
-      <ChangePasswordModalContent
-        userId={userId}
-        onSuccess={() => setModal(false)}
-      />
+    <Modal open={open} onOpenChange={setOpen} key={open ? 1 : 0}>
+      <ModalTrigger asChild={true}>{children}</ModalTrigger>
+      <ChangePasswordForm userId={user.id} email={user.email} onSuccess={() => setOpen(false)} isAdminReset={isAdminReset} />
     </Modal>
   );
 }
 
-type ModalProps = {
+type ModalContentProps = {
   userId?: string;
-  onSuccess?: () => void;
+  email?: string;
+  onSuccess: () => void;
 };
 
 export function ChangePasswordModalContent({
   userId,
+  email,
   onSuccess,
-}: Readonly<ModalProps>) {
-  const passwordRequest = useApiCall<void>(`/users/${userId}/password`, true);
-  const [currentPassword, setCurrentPassword] = useState("");
+}: Readonly<ModalContentProps>) {
+  return <ChangePasswordForm userId={userId} email={email} onSuccess={onSuccess} />;
+}
+
+export function ChangePasswordForm({
+  userId,
+  email,
+  onSuccess,
+  title,
+  description,
+  showClose = true,
+  preventDismiss = false,
+  isAdminReset = false,
+}: Readonly<{
+  userId?: string;
+  email?: string;
+  onSuccess: () => void;
+  title?: string;
+  description?: string;
+  showClose?: boolean;
+  preventDismiss?: boolean;
+  isAdminReset?: boolean;
+}>) {
+  const passwordRequest = useApiCall<Record<string, never>>(
+    `/users/${userId}/password`,
+  );
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
-  const currentPasswordError = useMemo(() => {
-    if (currentPassword.length === 0) return undefined;
-    return undefined;
-  }, [currentPassword]);
-
-  const newPasswordError = useMemo(() => {
-    if (newPassword.length === 0) return undefined;
-    if (newPassword.length < 8) return "Password must be at least 8 characters";
-    return undefined;
+  const passwordsMatch = newPassword === confirmPassword;
+  const isStrongPassword = useMemo(() => {
+    if (newPassword.length < 8) return false;
+    if (!/[A-Z]/.test(newPassword)) return false;
+    if (!/[0-9]/.test(newPassword)) return false;
+    if (!/[^A-Za-z0-9]/.test(newPassword)) return false;
+    return true;
   }, [newPassword]);
 
-  const confirmPasswordError = useMemo(() => {
-    if (confirmPassword.length === 0) return undefined;
-    if (newPassword !== confirmPassword) return "Passwords do not match";
-    return undefined;
-  }, [newPassword, confirmPassword]);
-
   const isDisabled = useMemo(() => {
-    if (currentPassword.length === 0) return true;
-    if (newPassword.length < 8) return true;
-    if (confirmPassword.length === 0) return true;
-    if (newPassword !== confirmPassword) return true;
+    if (!isAdminReset && oldPassword.length === 0) return true;
+    if (newPassword.length === 0) return true;
+    if (!passwordsMatch) return true;
+    if (!isStrongPassword) return true;
+    if (!isAdminReset && oldPassword === newPassword) return true;
     return false;
-  }, [currentPassword, newPassword, confirmPassword]);
+  }, [oldPassword, newPassword, passwordsMatch, isStrongPassword, isAdminReset]);
 
-  const changePassword = async () => {
-    if (!userId || isDisabled) return;
-
-    setIsLoading(true);
+  const handleSubmit = async () => {
+    const actionTitle = isAdminReset ? "Reset Password" : "Change Password";
+    const actionMsg = isAdminReset ? "Resetting password..." : "Updating your password...";
     notify({
-      title: "Change Password",
-      description: "Your password has been successfully changed.",
+      title: actionTitle,
+      description: actionMsg,
       promise: passwordRequest
         .put({
-          old_password: currentPassword,
+          old_password: isAdminReset ? "" : oldPassword,
           new_password: newPassword,
         })
         .then(() => {
-          onSuccess && onSuccess();
-        })
-        .finally(() => {
-          setIsLoading(false);
+          onSuccess();
         }),
-      loadingMessage: "Changing password...",
+      loadingMessage: isAdminReset ? "Resetting password..." : "Changing password...",
     });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isDisabled && !isLoading) {
-      changePassword();
-    }
-  };
+  const defaultTitle = isAdminReset ? "Reset Password" : "Change Password";
+  const defaultDescription = isAdminReset ? (
+    <>
+      Set a new password for{" "}
+      <span className="font-medium text-white">{email || "this user"}</span>
+    </>
+  ) : (
+    <>
+      Update the password for{" "}
+      <span className="font-medium text-white">{email || "your account"}</span>
+    </>
+  );
 
   return (
-    <ModalContent maxWidthClass={"max-w-lg"}>
-      <ModalHeader
-        icon={<KeyRound size={18} />}
-        title={"Change Password"}
-        description={"Update your account password."}
-        color={"netbird"}
-      />
-
-      <Separator />
-
-      <form className={"px-8 py-6 flex flex-col gap-6"} onSubmit={changePassword}>
-        <div>
-          <Label>Current Password</Label>
-          <HelpText>Enter your current password to verify your identity.</HelpText>
-          <Input
-            type="password"
-            placeholder={"Enter current password"}
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
-            showPasswordToggle
-            error={currentPasswordError}
-            customPrefix={<LockIcon size={16} className={"text-nb-gray-300"} />}
-            name={"current-password"}
-            autoComplete={"current-password"}
-          />
+    <ModalContent
+      maxWidthClass={"max-w-md"}
+      showClose={showClose}
+      {...(preventDismiss ? {
+        onEscapeKeyDown: (e: Event) => e.preventDefault(),
+        onInteractOutside: (e: Event) => e.preventDefault(),
+        onPointerDownOutside: (e: Event) => e.preventDefault(),
+      } : {})}
+    >
+      <div className={"flex flex-col items-center justify-center px-8 pt-4"}>
+        <div
+          className={
+            "w-12 h-12 rounded-full bg-nb-gray-900 flex items-center justify-center mb-4"
+          }
+        >
+          <ShieldCheck size={24} className={"text-netbird"} />
         </div>
+        <h2 className={"text-lg my-0 text-center"}>{title || defaultTitle}</h2>
+        <Paragraph className={"text-sm text-center max-w-xs"}>
+          {description || defaultDescription}
+        </Paragraph>
+      </div>
 
-        <div>
-          <Label>New Password</Label>
-          <HelpText>
-            Enter your new password. Must be at least 8 characters.
-          </HelpText>
+      <div className={"px-8 py-4 flex flex-col gap-4"}>
+        {!isAdminReset && (
           <Input
-            type="password"
-            placeholder={"Enter new password"}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
-            showPasswordToggle
-            error={newPasswordError}
-            customPrefix={<LockIcon size={16} className={"text-nb-gray-300"} />}
-            name={"new-password"}
-            autoComplete={"new-password"}
+            type={"password"}
+            customPrefix={
+              <Lock size={16} className={"text-nb-gray-300"} />
+            }
+            placeholder={"Current password"}
+            value={oldPassword}
+            onChange={(e) => setOldPassword(e.target.value)}
           />
-        </div>
-
-        <div>
-          <Label>Confirm New Password</Label>
-          <HelpText>Re-enter your new password to confirm.</HelpText>
-          <Input
-            type="password"
-            placeholder={"Confirm new password"}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
-            showPasswordToggle
-            error={confirmPasswordError}
-            customPrefix={<LockIcon size={16} className={"text-nb-gray-300"} />}
-            name={"confirm-password"}
-            autoComplete={"confirm-password"}
-          />
-        </div>
-      </form>
+        )}
+        <Input
+          type={"password"}
+          customPrefix={
+            <KeyRound size={16} className={"text-nb-gray-300"} />
+          }
+          placeholder={"New password"}
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          error={
+            newPassword.length > 0 && !isStrongPassword
+              ? "Min 8 chars, 1 uppercase, 1 digit, 1 special char"
+              : undefined
+          }
+        />
+        <Input
+          type={"password"}
+          customPrefix={
+            <KeyRound size={16} className={"text-nb-gray-300"} />
+          }
+          placeholder={"Confirm new password"}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          error={
+            confirmPassword.length > 0 && !passwordsMatch
+              ? "Passwords do not match"
+              : undefined
+          }
+        />
+        {!isAdminReset && oldPassword.length > 0 &&
+          newPassword.length > 0 &&
+          oldPassword === newPassword && (
+            <Paragraph className="text-xs text-red-400 mt-0 text-center">
+              New password must be different from current password
+            </Paragraph>
+          )}
+      </div>
 
       <ModalFooter className={"items-center"}>
-        <div className={"flex gap-3 w-full justify-end"}>
-          <ModalClose asChild={true}>
-            <Button variant={"secondary"}>Cancel</Button>
-          </ModalClose>
-
-          <Button
-            variant={"primary"}
-            disabled={isDisabled || isLoading}
-            onClick={changePassword}
-          >
-            Change Password
-          </Button>
-        </div>
+        <Button
+          variant={"primary"}
+          className={"w-full"}
+          disabled={isDisabled}
+          onClick={handleSubmit}
+        >
+          <KeyRound size={14} />
+          {isAdminReset ? "Reset Password" : "Update Password"}
+        </Button>
       </ModalFooter>
     </ModalContent>
   );
