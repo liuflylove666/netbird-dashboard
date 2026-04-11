@@ -20,6 +20,8 @@ export interface ApiError {
 
 export interface VersionInfo {
   management_current_version: string;
-  management_available_version: string;
-  dashboard_available_version: string;
+  /** From management API (proper semver / prerelease handling). Prefer over client-side compare. */
+  management_update_available: boolean;
+  management_available_version?: string;
+  dashboard_available_version?: string;
 }
