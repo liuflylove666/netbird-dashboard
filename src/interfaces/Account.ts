@@ -24,6 +24,7 @@ export interface Account {
     dns_domain: string;
     network_range?: string;
     lazy_connection_enabled: boolean;
+    mfa_required?: boolean;
     embedded_idp_enabled?: boolean;
     auto_update_version: string;
     auto_update_always: boolean;

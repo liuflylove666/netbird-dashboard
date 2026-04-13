@@ -22,6 +22,7 @@ import { cn } from "@utils/helpers";
 import {
   CalendarClock,
   ExternalLinkIcon,
+  ShieldCheck,
   ShieldIcon,
   ShieldUserIcon,
   TimerResetIcon,
@@ -66,6 +67,19 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
     },
   );
 
+  /**
+   * MFA required for all users
+   */
+  const [mfaRequired, setMfaRequired] = useState<boolean>(() => {
+    try {
+      return account?.settings?.mfa_required || false;
+    } catch {
+      return false;
+    }
+  });
+
+  const embeddedIdpEnabled = account?.settings?.embedded_idp_enabled || false;
+
   // Peer Expiration
   const [
     loginExpiration,
@@ -99,6 +113,7 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
   const { hasChanges, updateRef } = useHasChanges([
     peerApproval,
     userApprovalRequired,
+    mfaRequired,
     loginExpiration,
     expiresIn,
     expireInterval,
@@ -124,6 +139,7 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
               ? peerInactivityExpirationEnabled
               : false,
             peer_inactivity_expiration: 600,
+            mfa_required: mfaRequired,
             extra: {
               ...account.settings?.extra,
               peer_approval_enabled: peerApproval,
@@ -136,6 +152,7 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
           updateRef([
             peerApproval,
             userApprovalRequired,
+            mfaRequired,
             loginExpiration,
             expiresIn,
             expireInterval,
@@ -212,6 +229,29 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
               disabled={!permission.settings.update}
             />
           </div>
+
+          {embeddedIdpEnabled && (
+            <div className={"flex flex-col"}>
+              <FancyToggleSwitch
+                value={mfaRequired}
+                onChange={setMfaRequired}
+                dataCy={"mfa-required"}
+                label={
+                  <>
+                    <ShieldCheck size={15} />
+                    Require Two-Factor Authentication
+                  </>
+                }
+                helpText={
+                  <>
+                    Require all users to enable MFA (TOTP). Users who <br />
+                    have not set up MFA will be forced to do so on login.
+                  </>
+                }
+                disabled={!permission.settings.update}
+              />
+            </div>
+          )}
 
           <div className={"flex flex-col"}>
             <FancyToggleSwitch

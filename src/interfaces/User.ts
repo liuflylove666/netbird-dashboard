@@ -18,6 +18,7 @@ export interface User {
   force_password_change?: boolean;
   mfa_enabled?: boolean;
   mfa_required?: boolean;
+  mfa_setup_required?: boolean;
 }
 
 export interface UserInviteCreateRequest {
