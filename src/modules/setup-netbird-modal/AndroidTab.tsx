@@ -42,12 +42,7 @@ export default function AndroidTab({ pkgsBase }: Readonly<Props>) {
                   ):
                 </p>
                 <div className={"flex flex-wrap gap-3 mt-2 items-center"}>
-                  <Link
-                    href={apkUrl}
-                    passHref
-                    target={"_blank"}
-                    rel="noopener noreferrer"
-                  >
+                  <Link href={apkUrl} passHref>
                     <Button variant={"primary"}>
                       <DownloadIcon size={14} />
                       Download APK

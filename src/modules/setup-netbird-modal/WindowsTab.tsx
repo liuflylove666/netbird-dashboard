@@ -61,12 +61,7 @@ export default function WindowsTab({
                 placeholder={"Select architecture"}
                 options={windowsOptions}
               />
-              <Link
-                href={windowsUrl}
-                passHref
-                target={"_blank"}
-                rel="noopener noreferrer"
-              >
+              <Link href={windowsUrl} passHref>
                 <Button variant={"primary"}>
                   <DownloadIcon size={14} />
                   Download NetBird

@@ -54,7 +54,6 @@ export default function MacOSTab({
               <Link
                 href={`${pkgsBase}/macos/universal`}
                 passHref
-                target={"_blank"}
               >
                 <Button variant={"primary"}>
                   <DownloadIcon size={14} />

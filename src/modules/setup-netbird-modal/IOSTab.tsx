@@ -46,12 +46,7 @@ export default function IOSTab({ pkgsBase }: Readonly<Props>) {
                   ) and distribute with your mobile device management tool.
                 </p>
                 <div className={"flex flex-wrap gap-3 mt-2 items-center"}>
-                  <Link
-                    href={ipaUrl}
-                    passHref
-                    target={"_blank"}
-                    rel="noopener noreferrer"
-                  >
+                  <Link href={ipaUrl} passHref>
                     <Button variant={"primary"}>
                       <DownloadIcon size={14} />
                       Download IPA
