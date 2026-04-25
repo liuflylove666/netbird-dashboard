@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import { Label } from "@components/Label";
 import HelpText from "@components/HelpText";
 import Button from "@components/Button";
@@ -18,8 +18,7 @@ import {
   SelectOption,
 } from "@components/select/SelectDropdown";
 import { CountrySelector } from "@/components/ui/CountrySelector";
-import { AccessRestrictions, CrowdSecMode } from "@/interfaces/ReverseProxy";
-import { ReverseProxyCrowdSecIPReputation } from "@/modules/reverse-proxy/ReverseProxyCrowdSecIPReputation";
+import { AccessRestrictions } from "@/interfaces/ReverseProxy";
 
 type AccessAction = "allow" | "block";
 type AccessRuleType = "country" | "ip" | "cidr";
@@ -94,41 +93,30 @@ function rulesReducer(state: AccessRule[], action: RulesAction): AccessRule[] {
   }
 }
 
-function pushCidrRules(
-  rules: AccessRule[],
-  values: string[] | undefined,
-  action: AccessAction,
-) {
-  values?.forEach((v) => {
-    const isIp = v.includes(":") ? v.endsWith("/128") : v.endsWith("/32");
-    rules.push({
-      id: nextId(),
-      action,
-      type: isIp ? "ip" : "cidr",
-      value: isIp ? v.replace(/\/(32|128)$/, "") : v,
-    });
-  });
-}
-
 function restrictionsToRules(
   restrictions: AccessRestrictions | undefined,
 ): AccessRule[] {
   if (!restrictions) return [];
   const rules: AccessRule[] = [];
-  pushCidrRules(rules, restrictions.blocked_cidrs, "block");
-  restrictions.blocked_countries?.forEach((v) =>
-    rules.push({ id: nextId(), action: "block", type: "country", value: v }),
-  );
-  pushCidrRules(rules, restrictions.allowed_cidrs, "allow");
   restrictions.allowed_countries?.forEach((v) =>
     rules.push({ id: nextId(), action: "allow", type: "country", value: v }),
   );
+  restrictions.blocked_countries?.forEach((v) =>
+    rules.push({ id: nextId(), action: "block", type: "country", value: v }),
+  );
+  restrictions.allowed_cidrs?.forEach((v) => {
+    const isIp = v.endsWith("/32");
+    rules.push({ id: nextId(), action: "allow", type: isIp ? "ip" : "cidr", value: isIp ? v.replace(/\/32$/, "") : v });
+  });
+  restrictions.blocked_cidrs?.forEach((v) => {
+    const isIp = v.endsWith("/32");
+    rules.push({ id: nextId(), action: "block", type: isIp ? "ip" : "cidr", value: isIp ? v.replace(/\/32$/, "") : v });
+  });
   return rules;
 }
 
 function rulesToRestrictions(
   rules: AccessRule[],
-  crowdsecMode?: CrowdSecMode,
 ): AccessRestrictions | undefined {
   const allowed_countries: string[] = [];
   const blocked_countries: string[] = [];
@@ -141,23 +129,17 @@ function rulesToRestrictions(
       if (rule.action === "allow") allowed_countries.push(rule.value);
       else blocked_countries.push(rule.value);
     } else {
-      const suffix = rule.value.includes(":") ? "/128" : "/32";
-      const value =
-        rule.type === "ip" && !rule.value.includes("/")
-          ? `${rule.value}${suffix}`
-          : rule.value;
+      const value = rule.type === "ip" && !rule.value.includes("/") ? `${rule.value}/32` : rule.value;
       if (rule.action === "allow") allowed_cidrs.push(value);
       else blocked_cidrs.push(value);
     }
   }
 
-  const hasCrowdSec = crowdsecMode != null && crowdsecMode !== CrowdSecMode.OFF;
   const hasAny =
     allowed_countries.length > 0 ||
     blocked_countries.length > 0 ||
     allowed_cidrs.length > 0 ||
-    blocked_cidrs.length > 0 ||
-    hasCrowdSec;
+    blocked_cidrs.length > 0;
 
   if (!hasAny) return undefined;
 
@@ -166,7 +148,6 @@ function rulesToRestrictions(
     ...(blocked_countries.length > 0 && { blocked_countries }),
     ...(allowed_cidrs.length > 0 && { allowed_cidrs }),
     ...(blocked_cidrs.length > 0 && { blocked_cidrs }),
-    ...(hasCrowdSec && { crowdsec_mode: crowdsecMode }),
   };
 }
 
@@ -174,7 +155,6 @@ type Props = {
   value: AccessRestrictions | undefined;
   onChange: (value: AccessRestrictions | undefined) => void;
   onValidationChange?: (hasErrors: boolean) => void;
-  supportsCrowdSec?: boolean;
 };
 
 function validateRule(rule: AccessRule): string {
@@ -192,20 +172,11 @@ function validateRule(rule: AccessRule): string {
   return "";
 }
 
-export const ReverseProxyAccessControlRules = ({
-  value,
-  onChange,
-  onValidationChange,
-  supportsCrowdSec,
-}: Props) => {
+export const ReverseProxyAccessControlRules = ({ value, onChange, onValidationChange }: Props) => {
   const [rules, dispatch] = useReducer(
     rulesReducer,
     value,
     restrictionsToRules,
-  );
-
-  const [crowdsecMode, setCrowdsecMode] = useState<CrowdSecMode>(
-    value?.crowdsec_mode ?? CrowdSecMode.OFF,
   );
 
   const errors = useMemo(
@@ -225,14 +196,8 @@ export const ReverseProxyAccessControlRules = ({
   onValidationChangeRef.current = onValidationChange;
 
   useEffect(() => {
-    if (!supportsCrowdSec) {
-      setCrowdsecMode(CrowdSecMode.OFF);
-    }
-  }, [supportsCrowdSec]);
-
-  useEffect(() => {
-    onChangeRef.current(rulesToRestrictions(rules, crowdsecMode));
-  }, [rules, crowdsecMode]);
+    onChangeRef.current(rulesToRestrictions(rules));
+  }, [rules]);
 
   useEffect(() => {
     onValidationChangeRef.current?.(hasErrors);
@@ -240,13 +205,6 @@ export const ReverseProxyAccessControlRules = ({
 
   return (
     <div className={"flex-col flex"}>
-      {supportsCrowdSec && (
-        <ReverseProxyCrowdSecIPReputation
-          value={crowdsecMode}
-          onChange={setCrowdsecMode}
-        />
-      )}
-
       <div>
         <Label>Access Control Rules</Label>
         <HelpText>
@@ -343,17 +301,15 @@ export const ReverseProxyAccessControlRules = ({
           ))}
         </div>
       )}
-      <div className="flex gap-2">
-        <Button
-          variant="dotted"
-          className="flex-1"
-          size="sm"
-          onClick={() => dispatch({ type: "add" })}
-        >
-          <PlusIcon size={14} />
-          Add Rule
-        </Button>
-      </div>
+      <Button
+        variant="dotted"
+        className="w-full"
+        size="sm"
+        onClick={() => dispatch({ type: "add" })}
+      >
+        <PlusIcon size={14} />
+        Add Rule
+      </Button>
     </div>
   );
 };
