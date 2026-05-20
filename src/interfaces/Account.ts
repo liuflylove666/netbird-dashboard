@@ -31,6 +31,9 @@ export interface Account {
     /** When true, install UI uses management server /downloads/ instead of pkgs.netbird.io */
     client_downloads_use_management_server?: boolean;
     local_auth_disabled?: boolean;
+    local_mfa_enabled?: boolean;
+    ipv6_enabled_groups?: string[];
+    network_range_v6?: string;
   };
   onboarding?: AccountOnboarding;
 }

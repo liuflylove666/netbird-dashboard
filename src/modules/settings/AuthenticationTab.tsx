@@ -7,6 +7,7 @@ import { Input } from "@components/Input";
 import { Label } from "@components/Label";
 import { notify } from "@components/Notification";
 import Paragraph from "@components/Paragraph";
+import { SmallBadge } from "@components/ui/SmallBadge";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import { cn } from "@utils/helpers";
 import {
   CalendarClock,
   ExternalLinkIcon,
+  KeyRound,
   ShieldCheck,
   ShieldIcon,
   ShieldUserIcon,
@@ -78,6 +80,14 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
     }
   });
 
+  const [isLocalMFAEnabled, setIsLocalMFAEnabled] = useState<boolean>(() => {
+    try {
+      return account?.settings?.local_mfa_enabled || false;
+    } catch (error) {
+      return false;
+    }
+  });
+
   const embeddedIdpEnabled = account?.settings?.embedded_idp_enabled || false;
 
   // Peer Expiration
@@ -114,6 +124,7 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
     peerApproval,
     userApprovalRequired,
     mfaRequired,
+    isLocalMFAEnabled,
     loginExpiration,
     expiresIn,
     expireInterval,
@@ -140,6 +151,7 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
               : false,
             peer_inactivity_expiration: 600,
             mfa_required: mfaRequired,
+            local_mfa_enabled: isLocalMFAEnabled,
             extra: {
               ...account.settings?.extra,
               peer_approval_enabled: peerApproval,
@@ -153,6 +165,7 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
             peerApproval,
             userApprovalRequired,
             mfaRequired,
+            isLocalMFAEnabled,
             loginExpiration,
             expiresIn,
             expireInterval,
@@ -252,6 +265,37 @@ export default function AuthenticationTab({ account }: Readonly<Props>) {
               />
             </div>
           )}
+
+          {!account.settings.local_auth_disabled &&
+          account.settings.embedded_idp_enabled ? (
+            <div className={"flex flex-col"}>
+              <FancyToggleSwitch
+                value={isLocalMFAEnabled}
+                onChange={setIsLocalMFAEnabled}
+                dataCy={"local-mfa-enabled"}
+                label={
+                  <>
+                    <KeyRound size={15} />
+                    Enable Local MFA
+                    <SmallBadge
+                      text={"Beta"}
+                      variant={"sky"}
+                      className={"text-[9px] leading-none py-[3px] px-[5px]"}
+                      textClassName={"top-0"}
+                    />
+                  </>
+                }
+                helpText={
+                  <>
+                    Require multi-factor authentication for users
+                    <br />
+                    authenticating with local credentials.
+                  </>
+                }
+                disabled={!permission.settings.update}
+              />
+            </div>
+          ) : null}
 
           <div className={"flex flex-col"}>
             <FancyToggleSwitch

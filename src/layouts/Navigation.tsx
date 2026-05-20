@@ -37,6 +37,7 @@ export default function Navigation({
 
   return (
     <div
+      data-navigation
       className={cn(
         "whitespace-nowrap md:border-r dark:border-zinc-700/40 bg-gray-50 dark:bg-nb-gray relative group/navigation transition-all",
         hideOnMobile ? "hidden md:block" : "",

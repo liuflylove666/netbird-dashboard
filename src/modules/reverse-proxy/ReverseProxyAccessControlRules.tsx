@@ -4,6 +4,7 @@ import HelpText from "@components/HelpText";
 import Button from "@components/Button";
 import { Input } from "@components/Input";
 import cidr from "ip-cidr";
+import { isIPv6 } from "@utils/ip";
 import {
   FlagIcon,
   MinusCircleIcon,
@@ -160,13 +161,17 @@ type Props = {
 function validateRule(rule: AccessRule): string {
   if (rule.type === "country" || !rule.value) return "";
   if (rule.type === "ip") {
-    const val = rule.value.includes("/") ? rule.value : `${rule.value}/32`;
+    let val = rule.value;
+    if (!val.includes("/")) {
+      const suffix = isIPv6(val) ? 128 : 32;
+      val = `${val}/${suffix}`;
+    }
     if (!cidr.isValidAddress(val)) {
-      return "Please enter a valid IP address, e.g., 85.203.15.42";
+      return "Please enter a valid IP address, e.g., 85.203.15.42 or 2001:db8::1";
     }
   } else {
     if (!rule.value.includes("/") || !cidr.isValidAddress(rule.value)) {
-      return "Please enter a valid CIDR block, e.g., 74.125.0.0/16";
+      return "Please enter a valid CIDR block, e.g., 74.125.0.0/16 or 2001:db8::/64";
     }
   }
   return "";
@@ -270,8 +275,8 @@ export const ReverseProxyAccessControlRules = ({ value, onChange, onValidationCh
                   <Input
                     placeholder={
                       rule.type === "ip"
-                        ? "e.g., 85.203.15.42"
-                        : "e.g., 74.125.0.0/16"
+                        ? "e.g., 85.203.15.42 or 2001:db8::1"
+                        : "e.g., 74.125.0.0/16 or 2001:db8::/64"
                     }
                     value={rule.value}
                     onChange={(e) =>

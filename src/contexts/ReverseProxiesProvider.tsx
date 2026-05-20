@@ -2,6 +2,7 @@
 
 import { notify } from "@components/Notification";
 import useFetchApi, { useApiCall } from "@utils/api";
+import { wrapIPv6 } from "@utils/ip";
 import React, {
   createContext,
   useCallback,
@@ -15,6 +16,7 @@ import { Network, NetworkResource } from "@/interfaces/Network";
 import { Peer } from "@/interfaces/Peer";
 import {
   ReverseProxy,
+  ReverseProxyCluster,
   ReverseProxyDomain,
   ReverseProxyFlatTarget,
   ReverseProxyTarget,
@@ -23,6 +25,7 @@ import {
 } from "@/interfaces/ReverseProxy";
 import ReverseProxyModal from "@/modules/reverse-proxy/ReverseProxyModal";
 import ReverseProxyTargetModal from "@/modules/reverse-proxy/targets/ReverseProxyTargetModal";
+import { usePermissions } from "@/contexts/PermissionsProvider";
 
 type ReverseProxiesContextValue = {
   reverseProxies: ReverseProxy[] | undefined;
@@ -51,6 +54,9 @@ type ReverseProxiesContextValue = {
     domain: string,
     targetCluster: string,
   ) => Promise<ReverseProxyDomain>;
+  clusters: ReverseProxyCluster[] | undefined;
+  isClustersLoading: boolean;
+  isSelfHostedCluster: (clusterAddress?: string) => boolean;
 };
 
 type OpenModalOptions = {
@@ -90,10 +96,14 @@ export default function ReverseProxiesProvider({
 }: Readonly<Props>) {
   const { mutate } = useSWRConfig();
   const { confirm } = useDialog();
+  const { permission } = usePermissions();
 
   // Reverse Proxies
   const { data: rawReverseProxies, isLoading } = useFetchApi<ReverseProxy[]>(
     "/reverse-proxies/services",
+    false,
+    true,
+    permission?.services.read,
   );
   const request = useApiCall<ReverseProxy>("/reverse-proxies/services", true);
 
@@ -101,6 +111,9 @@ export default function ReverseProxiesProvider({
   const { data: peers } = useFetchApi<Peer[]>("/peers");
   const { data: resources } = useFetchApi<NetworkResource[]>(
     "/networks/resources",
+    false,
+    true,
+    permission?.services.read,
   );
 
   const resolveDestination = useCallback(
@@ -125,10 +138,23 @@ export default function ReverseProxiesProvider({
   // Domains
   const { data: domains, isLoading: isLoadingDomains } = useFetchApi<
     ReverseProxyDomain[]
-  >("/reverse-proxies/domains");
+  >("/reverse-proxies/domains", false, true, permission.services?.read);
   const domainRequest = useApiCall<ReverseProxyDomain>(
     "/reverse-proxies/domains",
     true,
+  );
+
+  // Clusters
+  const { data: clusters, isLoading: isClustersLoading } = useFetchApi<
+    ReverseProxyCluster[]
+  >("/reverse-proxies/clusters", false, true, permission.services?.read);
+
+  const isSelfHostedCluster = useCallback(
+    (clusterAddress?: string) => {
+      if (!clusterAddress) return false;
+      return !!clusters?.find((c) => c.address === clusterAddress)?.self_hosted;
+    },
+    [clusters],
   );
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -483,6 +509,9 @@ export default function ReverseProxiesProvider({
         createDomain,
         validateDomain,
         deleteDomain,
+        clusters,
+        isClustersLoading,
+        isSelfHostedCluster,
       }}
     >
       {children}
@@ -604,7 +633,7 @@ function formatTargetDestination(
   target: ReverseProxyTarget,
   resolvedHost?: string,
 ): string {
-  const host = target.host || resolvedHost || "localhost";
+  const host = wrapIPv6(target.host || resolvedHost || "localhost");
   const isDefault =
     (target.protocol === "http" && target.port === 80) ||
     (target.protocol === "https" && target.port === 443) ||
