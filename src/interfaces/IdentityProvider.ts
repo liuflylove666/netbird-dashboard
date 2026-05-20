@@ -45,8 +45,7 @@ export type SSOIdentityProviderType =
   | "pocketid"
   | "microsoft"
   | "authentik"
-  | "keycloak"
-  | "adfs";
+  | "keycloak";
 
 export const SSOIdentityProviderOptions: {
   value: SSOIdentityProviderType;
@@ -62,7 +61,6 @@ export const SSOIdentityProviderOptions: {
   { value: "pocketid", label: "PocketID" },
   { value: "authentik", label: "Authentik" },
   { value: "keycloak", label: "Keycloak" },
-  { value: "adfs", label: "Microsoft AD FS" },
 ];
 
 export const getSSOIdentityProviderLabelByType = (
