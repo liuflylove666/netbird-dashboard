@@ -13,6 +13,8 @@ import { RoutingPeerSetupKeyInfo } from "@/modules/setup-netbird-modal/SetupModa
 
 type Props = {
   setupKey?: string;
+  setupKeyContent?: React.ReactNode;
+  setupKeyPlaceholder?: string;
   showSetupKeyInfo?: boolean;
   hostname?: string;
   dockerClientImage: string;
@@ -20,10 +22,13 @@ type Props = {
 
 export default function DockerTab({
   setupKey,
+  setupKeyContent,
+  setupKeyPlaceholder,
   showSetupKeyInfo = false,
   hostname,
   dockerClientImage,
 }: Readonly<Props>) {
+  const offset = setupKeyContent ? 1 : 0;
   return (
     <TabsContent value={String(OperatingSystem.DOCKER)}>
       <TabsContentPadding>
@@ -47,7 +52,10 @@ export default function DockerTab({
               </Link>
             </div>
           </Steps.Step>
-          <Steps.Step step={2}>
+          {setupKeyContent && (
+            <Steps.Step step={2}>{setupKeyContent}</Steps.Step>
+          )}
+          <Steps.Step step={2 + offset}>
             <p>
               Run NetBird container
               {showSetupKeyInfo && <RoutingPeerSetupKeyInfo />}
@@ -59,7 +67,7 @@ export default function DockerTab({
                 {" "}
                 -e NB_SETUP_KEY=
                 <span className={"text-netbird"}>
-                  {setupKey ?? "SETUP_KEY"}
+                  {setupKey ?? setupKeyPlaceholder ?? "SETUP_KEY"}
                 </span>{" "}
                 \
               </Code.Line>
@@ -83,7 +91,7 @@ export default function DockerTab({
               <Code.Line> {dockerClientImage}</Code.Line>
             </Code>
           </Steps.Step>
-          <Steps.Step step={3} line={false}>
+          <Steps.Step step={3 + offset} line={false}>
             <p>Read our documentation</p>
             <InlineLink
               href={"https://docs.netbird.io/how-to/installation/docker"}
