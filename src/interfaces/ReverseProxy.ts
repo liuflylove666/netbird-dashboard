@@ -30,6 +30,13 @@ export interface AccessRestrictions {
   blocked_cidrs?: string[];
   allowed_countries?: string[];
   blocked_countries?: string[];
+  crowdsec_mode?: CrowdSecMode;
+}
+
+export enum CrowdSecMode {
+  OFF = "",
+  ENFORCE = "enforce",
+  OBSERVE = "observe",
 }
 
 export interface ReverseProxyMeta {
@@ -159,6 +166,7 @@ export interface ReverseProxyEvent {
   country_code?: string;
   city_name?: string;
   subdivision_code?: string;
+  metadata?: Record<string, string>;
   bytes_upload: number;
   bytes_download: number;
   protocol?: EventProtocol;

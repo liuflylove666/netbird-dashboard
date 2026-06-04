@@ -43,6 +43,7 @@ export interface UserInvite {
   expired: boolean;
   invite_token?: string;
   idp_id?: string;
+  password?: string;
 }
 
 export interface IdentityProvider {

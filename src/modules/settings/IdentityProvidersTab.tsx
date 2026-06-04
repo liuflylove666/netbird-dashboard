@@ -44,6 +44,7 @@ export const idpTypeLabels: Record<SSOIdentityProviderType, string> = {
   ldap: "LDAP / OpenLDAP",
   zitadel: "Zitadel",
   entra: "Microsoft Entra",
+  adfs: "ADFS",
   google: "Google",
   okta: "Okta",
   pocketid: "PocketID",

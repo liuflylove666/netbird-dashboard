@@ -61,6 +61,7 @@ const defaultNames: Record<SSOIdentityProviderType, string> = {
   google: "Google",
   microsoft: "Microsoft",
   entra: "Microsoft Entra",
+  adfs: "ADFS",
   okta: "Okta",
   zitadel: "Zitadel",
   pocketid: "PocketID",

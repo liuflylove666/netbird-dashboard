@@ -40,6 +40,7 @@ export type SSOIdentityProviderType =
   | "ldap"
   | "zitadel"
   | "entra"
+  | "adfs"
   | "google"
   | "okta"
   | "pocketid"
@@ -56,6 +57,7 @@ export const SSOIdentityProviderOptions: {
   { value: "google", label: "Google" },
   { value: "microsoft", label: "Microsoft" },
   { value: "entra", label: "Microsoft Entra" },
+  { value: "adfs", label: "ADFS" },
   { value: "okta", label: "Okta" },
   { value: "zitadel", label: "Zitadel" },
   { value: "pocketid", label: "PocketID" },

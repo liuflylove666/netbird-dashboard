@@ -24,9 +24,20 @@ import { IconMailForward, IconLink, IconUserPlus } from "@tabler/icons-react";
 import { useApiCall } from "@utils/api";
 import useFetchApi from "@utils/api";
 import { cn, validator } from "@utils/helpers";
-import { AlarmClock, CopyIcon, FolderTree, KeyRound, MailIcon, Plus, Server, User2, X } from "lucide-react";
+import {
+  AlarmClock,
+  CheckCircle2,
+  CopyIcon,
+  FolderTree,
+  KeyRound,
+  MailIcon,
+  Plus,
+  Server,
+  User2,
+  X,
+} from "lucide-react";
 import Image from "next/image";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
 import useCopyToClipboard from "@/hooks/useCopyToClipboard";
 import Avatar1 from "@/assets/avatars/009.jpg";
@@ -34,7 +45,8 @@ import Avatar2 from "@/assets/avatars/030.jpg";
 import Avatar3 from "@/assets/avatars/063.jpg";
 import Avatar4 from "@/assets/avatars/086.jpg";
 import { Group } from "@/interfaces/Group";
-import { IdentityProvider, Role, User, UserInvite } from "@/interfaces/User";
+import { SSOIdentityProvider } from "@/interfaces/IdentityProvider";
+import { Role, User, UserInvite } from "@/interfaces/User";
 import useGroupHelper from "@/modules/groups/useGroupHelper";
 import { UserRoleSelector } from "@/modules/users/UserRoleSelector";
 import { isNetBirdHosted } from "@utils/netbird";
@@ -48,6 +60,21 @@ type Props = {
 
 const passwordCopyMessage = "Password was copied to your clipboard!";
 const inviteLinkCopyMessage = "Invite link was copied to your clipboard!";
+
+function mergeLDAPGroupNames(...groupSets: string[][]) {
+  const groups: string[] = [];
+  const seen = new Set<string>();
+  groupSets.forEach((groupSet) => {
+    groupSet.forEach((group) => {
+      const trimmed = group.trim();
+      const key = trimmed.toLowerCase();
+      if (!trimmed || seen.has(key)) return;
+      seen.add(key);
+      groups.push(trimmed);
+    });
+  });
+  return groups;
+}
 
 type SuccessData =
   | { type: "password"; user: User }
@@ -73,7 +100,7 @@ export default function UserInviteModal({ children, groups }: Readonly<Props>) {
   const getCopyValue = () => {
     if (successData?.type === "password") return successData.user.password;
     if (successData?.type === "invite") return getInviteFullUrl();
-    if (successData?.type === "ldap") return successData.invite.email;
+    if (successData?.type === "ldap") return successData.invite.password;
     return undefined;
   };
   const [, copyToClipboard] = useCopyToClipboard(getCopyValue());
@@ -102,7 +129,7 @@ export default function UserInviteModal({ children, groups }: Readonly<Props>) {
 
   const handleCopyAndClose = () => {
     const message =
-      successData?.type === "password"
+      successData?.type === "password" || successData?.type === "ldap"
         ? passwordCopyMessage
         : inviteLinkCopyMessage;
     copyToClipboard(message).then(() => {
@@ -155,70 +182,48 @@ export default function UserInviteModal({ children, groups }: Readonly<Props>) {
                   {isInviteSuccess &&
                     "Share this link with the user. They will be able to set their own password."}
                   {isLdapSuccess &&
-                    "The user has been created in the LDAP directory and pre-registered in NetBird. They will be auto-approved on first login."}
+                    "The user has been created in the LDAP directory and pre-registered in NetBird. This password will not be shown again, so be sure to copy it and store in a secure location."}
                 </Paragraph>
               </div>
             </div>
           </div>
 
           <div className={"px-8 pb-6"}>
-            {isLdapSuccess ? (
-              <div className="rounded-md bg-nb-gray-900/50 border border-nb-gray-800 p-4 text-center">
-                <Paragraph className="text-sm text-nb-gray-300 mb-1 mt-0">
-                  User Email
-                </Paragraph>
-                <Paragraph className="text-base font-medium text-white mt-0">
-                  {successData.invite.email}
-                </Paragraph>
-              </div>
-            ) : (
-              <>
-                <Code
-                  message={
-                    isPasswordSuccess ? passwordCopyMessage : inviteLinkCopyMessage
-                  }
-                  codeToCopy={getCopyValue()}
-                >
-                  {isPasswordSuccess && (
-                    <Code.Line>{successData.user.password}</Code.Line>
-                  )}
-                  {isInviteSuccess && (
-                    <span className="break-all whitespace-normal block">
-                      {getInviteFullUrl()}
-                    </span>
-                  )}
-                </Code>
-                {isInviteSuccess && (
-                  <Paragraph className={"mt-3 text-xs text-nb-gray-400 text-center"}>
-                    Expires on{" "}
-                    {new Date(successData.invite.expires_at).toLocaleString()}
-                  </Paragraph>
-                )}
-              </>
+            <Code
+              message={
+                isPasswordSuccess || isLdapSuccess
+                  ? passwordCopyMessage
+                  : inviteLinkCopyMessage
+              }
+              codeToCopy={getCopyValue()}
+            >
+              {isPasswordSuccess && (
+                <Code.Line>{successData.user.password}</Code.Line>
+              )}
+              {isLdapSuccess && (
+                <Code.Line>{successData.invite.password}</Code.Line>
+              )}
+              {isInviteSuccess && (
+                <span className="break-all whitespace-normal block">
+                  {getInviteFullUrl()}
+                </span>
+              )}
+            </Code>
+            {isInviteSuccess && (
+              <Paragraph className={"mt-3 text-xs text-nb-gray-400 text-center"}>
+                Expires on{" "}
+                {new Date(successData.invite.expires_at).toLocaleString()}
+              </Paragraph>
             )}
           </div>
           <ModalFooter className={"items-center"}>
             <Button
               variant={"primary"}
               className={"w-full"}
-              onClick={() => {
-                if (isLdapSuccess) {
-                  setSuccessData(null);
-                  setSuccessModal(false);
-                  setOpen(false);
-                } else {
-                  handleCopyAndClose();
-                }
-              }}
+              onClick={handleCopyAndClose}
             >
-              {isLdapSuccess ? (
-                <>Close</>
-              ) : (
-                <>
-                  <CopyIcon size={14} />
-                  Copy & Close
-                </>
-              )}
+              <CopyIcon size={14} />
+              Copy & Close
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -242,7 +247,7 @@ export function UserInviteModalContent({
   const inviteRequest = useApiCall<UserInvite>("/users/invites");
   const { mutate } = useSWRConfig();
 
-  const { data: identityProviders } = useFetchApi<IdentityProvider[]>(
+  const { data: identityProviders } = useFetchApi<SSOIdentityProvider[]>(
     "/identity-providers",
     true,
   );
@@ -268,6 +273,25 @@ export function UserInviteModalContent({
     });
 
   const isExternalIdp = authSource !== "local";
+  const selectedLdapProvider = useMemo(() => {
+    return ldapProviders.find((provider) => provider.id === authSource);
+  }, [authSource, ldapProviders]);
+  const requiredLdapGroups = useMemo(() => {
+    return selectedLdapProvider?.ldap?.required_groups || [];
+  }, [selectedLdapProvider]);
+  const requiredLdapGroupKeys = useMemo(() => {
+    return new Set(
+      requiredLdapGroups.map((group) => group.trim().toLowerCase()),
+    );
+  }, [requiredLdapGroups]);
+
+  useEffect(() => {
+    if (!isExternalIdp) {
+      setLdapGroups([]);
+      return;
+    }
+    setLdapGroups((prev) => mergeLDAPGroupNames(requiredLdapGroups, prev));
+  }, [isExternalIdp, requiredLdapGroups]);
 
   const { data: existingLdapGroups } = useFetchApi<string[]>(
     `/identity-providers/${authSource}/ldap-groups`,
@@ -278,21 +302,22 @@ export function UserInviteModalContent({
 
   const availableLdapGroups = useMemo(() => {
     const existing = existingLdapGroups || [];
-    const all = new Set([...existing, ...ldapGroups]);
+    const all = new Set([...requiredLdapGroups, ...existing, ...ldapGroups]);
     return Array.from(all).sort();
-  }, [existingLdapGroups, ldapGroups]);
+  }, [existingLdapGroups, ldapGroups, requiredLdapGroups]);
 
   const addLdapGroup = useCallback((groupName: string) => {
     const trimmed = groupName.trim();
-    if (trimmed && !ldapGroups.includes(trimmed)) {
-      setLdapGroups((prev) => [...prev, trimmed]);
+    if (trimmed) {
+      setLdapGroups((prev) => mergeLDAPGroupNames(prev, [trimmed]));
     }
     setNewLdapGroup("");
-  }, [ldapGroups]);
+  }, []);
 
   const removeLdapGroup = useCallback((groupName: string) => {
+    if (requiredLdapGroupKeys.has(groupName.trim().toLowerCase())) return;
     setLdapGroups((prev) => prev.filter((g) => g !== groupName));
-  }, []);
+  }, [requiredLdapGroupKeys]);
 
   const isCloud = isNetBirdHosted();
   const [mode, setMode] = useState<UserCreationMode>("invite");
@@ -388,11 +413,27 @@ export function UserInviteModalContent({
     return email.length > 0 && validator.isValidEmail(email);
   }, [email]);
 
+  const ldapPasswordRequirements = useMemo(() => {
+    return [
+      { label: "At least 8 characters", met: password.length >= 8 },
+      { label: "One uppercase letter", met: /[A-Z]/.test(password) },
+      { label: "One number", met: /[0-9]/.test(password) },
+      {
+        label: "One special character",
+        met: /[^A-Za-z0-9]/.test(password),
+      },
+    ];
+  }, [password]);
+
+  const isLdapPasswordValid = useMemo(() => {
+    return ldapPasswordRequirements.every((requirement) => requirement.met);
+  }, [ldapPasswordRequirements]);
+
   const isDisabled = useMemo(() => {
     if (name.length === 0 || !isValidEmail) return true;
-    if (isExternalIdp && password.length < 6) return true;
+    if (isExternalIdp && !isLdapPasswordValid) return true;
     return false;
-  }, [name, isValidEmail, isExternalIdp, password]);
+  }, [name, isValidEmail, isExternalIdp, isLdapPasswordValid]);
 
   const getTitle = () => {
     if (isCloud) return "Invite User";
@@ -524,18 +565,40 @@ export function UserInviteModalContent({
             onChange={(e) => setEmail(e.target.value)}
           />
           {isExternalIdp && (
-            <Input
-              type={"password"}
-              className={"w-full"}
-              customPrefix={
-                <div className={"flex items-center gap-2"}>
-                  <KeyRound size={16} className={"text-nb-gray-300"} />
+            <div>
+              <Input
+                type={"password"}
+                className={"w-full"}
+                customPrefix={
+                  <div className={"flex items-center gap-2"}>
+                    <KeyRound size={16} className={"text-nb-gray-300"} />
+                  </div>
+                }
+                placeholder={"Enter password for the LDAP user"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              {password.length > 0 && (
+                <div className="mt-2 grid grid-cols-1 gap-1">
+                  {ldapPasswordRequirements.map((requirement) => (
+                    <div
+                      key={requirement.label}
+                      className={cn(
+                        "flex items-center gap-2 text-xs",
+                        requirement.met ? "text-green-500" : "text-nb-gray-400",
+                      )}
+                    >
+                      {requirement.met ? (
+                        <CheckCircle2 size={12} />
+                      ) : (
+                        <X size={12} />
+                      )}
+                      <span>{requirement.label}</span>
+                    </div>
+                  ))}
                 </div>
-              }
-              placeholder={"Enter password for the LDAP user"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+              )}
+            </div>
           )}
           {isExternalIdp && (
             <label className="flex items-center gap-3 cursor-pointer select-none">
@@ -559,25 +622,41 @@ export function UserInviteModalContent({
             <div>
               <Label>LDAP Groups</Label>
               <HelpText>
-                Select existing groups or type a new name to create one.
+                Required groups from the identity provider are selected
+                automatically.
               </HelpText>
               <div className="flex flex-wrap gap-2 mb-2">
-                {ldapGroups.map((g) => (
-                  <span
-                    key={g}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-nb-gray-800 text-sm text-nb-gray-200 border border-nb-gray-700"
-                  >
-                    <FolderTree size={12} className="text-nb-gray-400" />
-                    {g}
-                    <button
-                      type="button"
-                      onClick={() => removeLdapGroup(g)}
-                      className="ml-1 text-nb-gray-400 hover:text-red-400 transition-colors"
+                {ldapGroups.map((g) => {
+                  const isRequired = requiredLdapGroupKeys.has(
+                    g.trim().toLowerCase(),
+                  );
+                  return (
+                    <span
+                      key={g}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-1 rounded-md bg-nb-gray-800 text-sm text-nb-gray-200 border",
+                        isRequired ? "border-netbird" : "border-nb-gray-700",
+                      )}
                     >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
+                      <FolderTree size={12} className="text-nb-gray-400" />
+                      {g}
+                      {isRequired && (
+                        <span className="ml-1 text-[10px] uppercase text-netbird">
+                          Required
+                        </span>
+                      )}
+                      {!isRequired && (
+                        <button
+                          type="button"
+                          onClick={() => removeLdapGroup(g)}
+                          className="ml-1 text-nb-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
               </div>
               <div className="flex gap-2">
                 <div className="relative flex-1">
