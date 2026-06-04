@@ -217,7 +217,7 @@ export default function IdentityProviderModal({
         group_search_name_attr: trim(ldapGroupSearchNameAttr) || "cn",
         group_search_user_attr: trim(ldapGroupSearchUserAttr) || "DN",
         group_search_group_attr: trim(ldapGroupSearchGroupAttr) || "member",
-        required_groups: ldapRequiredGroups.length > 0 ? ldapRequiredGroups : undefined,
+        required_groups: ldapRequiredGroups,
       };
       payload.ldap = ldapConfig;
     }
